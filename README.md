@@ -89,11 +89,17 @@ Below is an example prompt you could send to your AI agent:
 
 ```
 ├── main.py  # Main module entry.
-│   ├── [Function] start_app  # Initializes the application.
-│   │   ├── [Args]
-│   │   │   └── config: Application configuration
-│   │   ├── [Function] initialize  # Sets up initial state.
-│   └── [Function] shutdown  # Cleans up before exit.
+│   └── [Class] Application  # Core application class.
+│       ├── [Function] __init__  # Initializes the Application class.
+│       │   └── [Args]
+│       │       └── config: Application configuration
+│       ├── [Function] start_app  # Starts the application.
+│       │   ├── [Args]
+│       │   │   └── config: Application configuration
+│       │   └── [Returns]
+│       │       └── Dict: API Response
+│       ├── [Function] initialize  # Sets up initial state.
+│       └── [Function] shutdown  # Cleans up before exit.
 ```
 
 ### `dependencies.txt`
