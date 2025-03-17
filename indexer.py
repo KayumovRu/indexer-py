@@ -2,7 +2,7 @@
 """
 This script indexes a Python project by generating a file tree, detailed definitions, and dependency listings.
 https://github.com/KayumovRu/indexer-py
-version: 0.11
+version: 0.12
 """
 
 import os
