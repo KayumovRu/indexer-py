@@ -2,7 +2,7 @@
 """
 This script indexes a Python project by generating a file tree, detailed definitions, and dependency listings.
 https://github.com/KayumovRu/indexer-py
-version: 0.1
+version: 0.11
 """
 
 import os
@@ -25,7 +25,8 @@ IGNORE = {
     "*.db",
     "Dockerfile",
     ".yaml",
-    ".json"
+    ".json",
+    "LICENSE"
 }
 
 # ---------------------- Utility Functions ---------------------- #
