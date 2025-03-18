@@ -2,12 +2,13 @@
 """
 This script indexes a Python project by generating a file tree, detailed definitions, and dependency listings.
 https://github.com/KayumovRu/indexer-py
-version: 0.12
 """
 
 import os
 import ast
 import fnmatch
+
+__version__ = "0.1.3"
 
 # Directory and file constants
 OUTPUT_DIR = "indexer_data"
@@ -397,7 +398,7 @@ if __name__ == "__main__":
     start_dir = os.getcwd()
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-    # Headers for output files (in English)
+    # Headers for output files
     dependencies_header = (
         f"# {DEPENDENCIES}\n"
         "# Description: Contains the project's dependencies.\n"
