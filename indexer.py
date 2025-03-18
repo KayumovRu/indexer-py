@@ -399,28 +399,28 @@ if __name__ == "__main__":
 
     # Headers for output files (in English)
     dependencies_header = (
-        "# dependencies.txt\n"
+        f"# {DEPENDENCIES}\n"
         "# Description: Contains the project's dependencies.\n"
         "# The first section lists all external libraries imported in the project (excluding local modules).\n"
         "# Following sections list, per file, the imported modules and used functions/classes.\n"
         "# Usage: Open this file to view the project's dependencies."
     )
     tree_files_header = (
-        "# tree_files.txt\n"
+        f"# {TREE_FILES}\n"
         "# Description: Represents the directory and file structure of the project.\n"
         "# For Python files, the module-level docstring (if available) is appended as a comment.\n"
         "# Items matching IGNORE are marked as 'ignored'.\n"
         "# Usage: Open this file to review the project's file hierarchy."
     )
     map_definitions_header = (
-        "# map_definitions.txt\n"
+        f"# {MAP_DEFINITIONS}\n"
         "# Description: Contains detailed definitions of all entities (functions, classes, and nested definitions) in each Python file.\n"
         "# Items matching IGNORE are marked as 'ignored' and are not processed for definitions.\n"
         "# Note: 'Args' and 'Returns' sections are nested under the corresponding function.\n"
         "# Usage: Open this file to inspect the project's internal definitions."
     )
     stat_header = (
-        "# stat.txt\n"
+        f"# {STATS}\n"
         "# Description: Provides statistics about the project.\n"
         "# Includes counts of directories, files (excluding ignored items), lines, and bytes.\n"
         "# Usage: Open this file to see the project's overall statistics."
