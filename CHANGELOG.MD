@@ -1,4 +1,4 @@
-# Changelog - не изменять!
+# Changelog
 
 ## [0.2.0] - 2025-05-02
 - improved appearance, readme addition
