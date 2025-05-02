@@ -1,5 +1,9 @@
 # Changelog - не изменять!
 
+## [0.1.9] - 2025-05-02
+- visual tree improvement: ignored in gray, highlighted in bold
+- fix changing column width
+
 ## [0.1.8] - 2025-05-02
 - colors of the selected node and connection
 - code syntax highlighting

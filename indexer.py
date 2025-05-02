@@ -9,7 +9,7 @@ import ast
 import fnmatch
 from pathlib import Path
 
-__version__ = "0.1.8"
+__version__ = "0.1.9"
 
 # Graph colors
 NODE_COLOR = "#0074D9"
@@ -502,8 +502,13 @@ def write_graph_html(start_path):
         # Check if this is a directory or a file
         is_dir = clean_line.endswith("/") or " # ignored" in clean_line and clean_line.replace(" # ignored", "").endswith("/")
         
+        # Check if this item is ignored
+        is_ignored = " # ignored" in clean_line
+        
         # Create class for item type
         item_class = "dir" if is_dir else "file"
+        if is_ignored:
+            item_class += " ignored"
         
         # Remove comments for display
         item_name = clean_line.split("  #")[0]
@@ -575,6 +580,7 @@ def write_graph_html(start_path):
       display: flex;
       flex: 1;
       overflow: hidden;
+      position: relative;
     }}
     
     .file-tree-panel {{
@@ -584,6 +590,24 @@ def write_graph_html(start_path):
       overflow: auto;
       padding: 10px;
       position: relative;
+      flex-shrink: 0;
+    }}
+    
+    .graph-panel {{
+      flex: 1;
+      position: relative;
+      min-width: 200px;
+    }}
+    
+    .code-panel {{
+      width: 35%;
+      min-width: 150px;
+      border-left: 1px solid #ccc;
+      overflow: auto;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      flex-shrink: 0;
     }}
     
     .file-tree {{
@@ -613,18 +637,18 @@ def write_graph_html(start_path):
       content: "📄 ";
     }}
     
-    #cy {{ 
-      flex: 1;
-      position: relative;
+    .file-tree .ignored {{
+      color: #999;
     }}
     
-    .code-panel {{
-      width: 35%;
-      border-left: 1px solid #ccc;
-      overflow: auto;
-      display: flex;
-      flex-direction: column;
-      position: relative;
+    .file-tree .selected {{
+      font-weight: bold;
+      background-color: #e0e0ff;
+    }}
+    
+    #cy {{ 
+      width: 100%;
+      height: 100%;
     }}
     
     .code-header {{
@@ -650,8 +674,8 @@ def write_graph_html(start_path):
     }}
     
     /* Panel resize styles */
-    .gutter {{
-      width: 10px;
+    .resizer {{
+      width: 8px;
       background: #eee;
       cursor: col-resize;
       position: absolute;
@@ -660,21 +684,16 @@ def write_graph_html(start_path):
       z-index: 10;
     }}
     
-    .gutter-right {{
+    .resizer:hover, .resizer.active {{
+      background-color: #ccc;
+    }}
+    
+    .left-resizer {{
       right: 0;
     }}
     
-    .gutter-left {{
+    .right-resizer {{
       left: 0;
-    }}
-    
-    /* Make grab cursor visible when hovering over panel edges */
-    .file-tree-panel:hover .gutter-right {{
-      background-color: #ccc;
-    }}
-    
-    .code-panel:hover .gutter-left {{
-      background-color: #ccc;
     }}
   </style>
 </head>
@@ -701,21 +720,23 @@ def write_graph_html(start_path):
     </div>
   </div>
   
-  <div class="main-container">
+  <div class="main-container" id="main-container">
     <div class="file-tree-panel" id="file-tree-panel">
       <h3>Project Files</h3>
       {tree_html}
-      <div class="gutter gutter-right" id="gutter-tree"></div>
+      <div class="resizer left-resizer" id="left-resizer"></div>
     </div>
     
-    <div id="cy"></div>
+    <div class="graph-panel" id="graph-panel">
+      <div id="cy"></div>
+    </div>
     
     <div class="code-panel" id="code-panel">
       <div class="code-header" id="code-header">Code View</div>
       <div class="code-content" id="code-content">
         <pre><code class="language-python">Click a node to view its code</code></pre>
       </div>
-      <div class="gutter gutter-left" id="gutter-code"></div>
+      <div class="resizer right-resizer" id="right-resizer"></div>
     </div>
   </div>
   
@@ -797,6 +818,32 @@ def write_graph_html(start_path):
       }});
     }}
     
+    // Function to mark selected file in tree
+    function markSelectedFile(filePath) {{
+      // Remove previous selection
+      document.querySelectorAll('.file-tree .selected').forEach(item => {{
+        item.classList.remove('selected');
+      }});
+      
+      // Find and highlight matching items
+      document.querySelectorAll('.file-tree li').forEach(item => {{
+        const itemText = item.textContent.trim();
+        if (filePath.endsWith(itemText)) {{
+          item.classList.add('selected');
+          
+          // Ensure parent lists are expanded
+          let parent = item.parentElement;
+          while (parent && parent.tagName === 'UL') {{
+            parent.style.display = 'block';
+            parent = parent.parentElement;
+          }}
+          
+          // Scroll into view if necessary
+          item.scrollIntoView({{ behavior: 'smooth', block: 'center' }});
+        }}
+      }});
+    }}
+    
     // Click handler for nodes
     cy.on('tap', 'node', evt => {{
       const node = evt.target;
@@ -823,11 +870,17 @@ def write_graph_html(start_path):
       
       // Highlight connections
       highlightConnections(nodeId);
+      
+      // Mark selected file in tree
+      markSelectedFile(displayPath);
     }});
     
     // Click handler for files in the tree
     document.querySelectorAll('.file-tree .file').forEach(fileItem => {{
       fileItem.addEventListener('click', () => {{
+        // Skip if this is an ignored item
+        if (fileItem.classList.contains('ignored')) return;
+        
         const fileName = fileItem.textContent.trim();
         
         // Find corresponding node in the graph
@@ -859,71 +912,85 @@ def write_graph_html(start_path):
             
             // Highlight connections
             highlightConnections(nodeId);
+            
+            // Mark as selected
+            fileItem.classList.add('selected');
           }}
         }});
       }});
     }});
     
-    // Resizable panels implementation
-    let isResizing = false;
-    let lastX = 0;
-    let currentPanel = null;
+    // Improved panel resizing
+    // Track which resizer is being dragged
+    let activeResizer = null;
     
-    // Setup left panel resizing
-    const gutterTree = document.getElementById('gutter-tree');
-    gutterTree.addEventListener('mousedown', function(e) {{
-      isResizing = true;
-      lastX = e.clientX;
-      currentPanel = document.getElementById('file-tree-panel');
+    // Left panel resizer (file tree)
+    const leftResizer = document.getElementById('left-resizer');
+    const fileTreePanel = document.getElementById('file-tree-panel');
+    
+    leftResizer.addEventListener('mousedown', function(e) {{
+      e.preventDefault();
+      activeResizer = 'left';
       document.body.style.cursor = 'col-resize';
       document.addEventListener('mousemove', handleMouseMove);
       document.addEventListener('mouseup', handleMouseUp);
-      e.preventDefault();
+      this.classList.add('active');
     }});
     
-    // Setup right panel resizing
-    const gutterCode = document.getElementById('gutter-code');
-    gutterCode.addEventListener('mousedown', function(e) {{
-      isResizing = true;
-      lastX = e.clientX;
-      currentPanel = document.getElementById('code-panel');
+    // Right panel resizer (code)
+    const rightResizer = document.getElementById('right-resizer');
+    const codePanel = document.getElementById('code-panel');
+    const mainContainer = document.getElementById('main-container');
+    
+    rightResizer.addEventListener('mousedown', function(e) {{
+      e.preventDefault();
+      activeResizer = 'right';
       document.body.style.cursor = 'col-resize';
       document.addEventListener('mousemove', handleMouseMove);
       document.addEventListener('mouseup', handleMouseUp);
-      e.preventDefault();
+      this.classList.add('active');
     }});
     
     function handleMouseMove(e) {{
-      if (!isResizing) return;
+      if (!activeResizer) return;
       
-      const deltaX = e.clientX - lastX;
-      lastX = e.clientX;
+      const containerWidth = mainContainer.offsetWidth;
       
-      const isLeftPanel = currentPanel.id === 'file-tree-panel';
-      const width = parseInt(getComputedStyle(currentPanel).width);
-      
-      if (isLeftPanel) {{
-        // Resizing left panel (tree)
-        const newWidth = width + deltaX;
-        if (newWidth > 100 && newWidth < window.innerWidth / 2) {{
-          currentPanel.style.width = newWidth + 'px';
+      if (activeResizer === 'left') {{
+        // Left panel resizing
+        const position = (e.clientX / containerWidth) * 100;
+        // Enforce min/max size
+        if (position > 5 && position < 50) {{
+          fileTreePanel.style.width = position + '%';
         }}
-      }} else {{
-        // Resizing right panel (code)
-        const newWidth = width - deltaX;
-        if (newWidth > 100 && newWidth < window.innerWidth / 2) {{
-          currentPanel.style.width = newWidth + 'px';
+      }} else if (activeResizer === 'right') {{
+        // Right panel resizing
+        const position = ((containerWidth - e.clientX) / containerWidth) * 100;
+        // Enforce min/max size
+        if (position > 5 && position < 50) {{
+          codePanel.style.width = position + '%';
         }}
       }}
+      
+      // Ensure Cytoscape graph redraws correctly
+      cy.resize();
     }}
     
     function handleMouseUp() {{
-      isResizing = false;
-      currentPanel = null;
+      activeResizer = null;
       document.body.style.cursor = '';
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
+      leftResizer.classList.remove('active');
+      rightResizer.classList.remove('active');
     }}
+    
+    // Initialize highlight.js for all code blocks
+    document.addEventListener('DOMContentLoaded', () => {{
+      document.querySelectorAll('pre code').forEach((block) => {{
+        hljs.highlightBlock(block);
+      }});
+    }});
   </script>
 </body>
 </html>"""
