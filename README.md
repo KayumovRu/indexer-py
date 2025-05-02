@@ -22,9 +22,6 @@ The main development principle is minimalism. To run the project, you only need 
 - **Project Statistics (`stat.txt`):**  
   Summarizes the project by counting directories, files (excluding ignored items), total lines, and total bytes.
 
-- **Interactive Dependency Graph (`graph.html`):**  
-  Generates an interactive visualization of module dependencies in your project. You can click on nodes to view the source code of the respective files and drag nodes to rearrange the graph layout.
-
 - **Interactive Project Explorer (`project.html`):**  
   Generates an interactive visualization of your project with three panels:
   - Left panel: Tree structure of your project files
@@ -144,6 +141,7 @@ Number of directories: 5
 Number of files: 12
 Total number of lines: 3500
 Total number of bytes: 120000
+Generated dependency graph: indexer_data\project.html
 ```
 
 ## Minimalistic and Standard Library Only
