@@ -9,7 +9,7 @@ import ast
 import fnmatch
 from pathlib import Path
 
-__version__ = "0.1.9"
+__version__ = "0.2.0"
 
 # Graph colors
 NODE_COLOR = "#0074D9"
@@ -42,7 +42,8 @@ IGNORE = {
     ".yaml",
     ".json",
     "LICENSE",
-    "__init__.py"
+    "__init__.py",
+    "*.env"
 }
 
 # ---------------------- Utility Functions ---------------------- #
@@ -397,24 +398,24 @@ def build_call_graph(start_path):
     """Returns list of nodes and edges for graph"""
     local_modules = build_local_modules(start_path)
     nodes = []
-    edges = set()  # используем множество для исключения дублирующихся рёбер
+    edges = set()  # use set to eliminate duplicate edges
     
-    # Добавляем узлы для каждого Python-файла в проекте
+    # Add nodes for each Python file in the project
     for module, rel_path in local_modules.items():
         nodes.append({'id': rel_path, 'label': rel_path})
     
-    # Создаем ребра на основе импортов
+    # Create edges based on imports
     for module, rel_path in local_modules.items():
         full_path = os.path.join(start_path, rel_path)
         imports, _ = get_used_entities(full_path)
         
         for imported in imports:
-            # Ищем импортированный модуль среди локальных модулей
+            # Search for imported module among local modules
             imported_prefix = imported.split('.')[0]
             for local_mod, local_path in local_modules.items():
                 if local_mod == imported or local_mod.startswith(imported + '.') or imported.startswith(local_mod + '.'):
-                    # Если нашли соответствие, добавляем ребро
-                    if rel_path != local_path:  # Исключаем самоссылки
+                    # If we find a match, we add an edge
+                    if rel_path != local_path:  # Eliminate self-references
                         edges.add((rel_path, local_path))
                     break
     
@@ -584,7 +585,7 @@ def write_graph_html(start_path):
     }}
     
     .file-tree-panel {{
-      width: 25%;
+      width: 20%;
       min-width: 150px;
       border-right: 1px solid #ccc;
       overflow: auto;
@@ -600,7 +601,7 @@ def write_graph_html(start_path):
     }}
     
     .code-panel {{
-      width: 35%;
+      width: 20%;
       min-width: 150px;
       border-left: 1px solid #ccc;
       overflow: auto;

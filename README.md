@@ -2,6 +2,12 @@
 
 Indexer-Py is a minimalistic Python project indexing tool built entirely with Python's standard libraries. It is designed to help you quickly restore context for your project by generating several output files that describe the project's structure, detailed definitions, and dependencies. This tool is especially useful when used in conjunction with AI agents (e.g., Cursor AI) to provide rapid context recovery from your project's source code.
 
+A project.html file is now also generated, allowing you to view all resulting artifacts as an interactive graph. You can switch between nodes and inspect the code inside each one.
+
+![Описание изображения](project_example.png)
+
+The main development principle is minimalism. To run the project, you only need a single indexer.py file, which works without importing any third-party libraries.
+
 ## Features
 
 - **File Tree (`tree_files.txt`):**  

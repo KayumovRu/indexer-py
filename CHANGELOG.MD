@@ -1,5 +1,8 @@
 # Changelog - не изменять!
 
+## [0.2.0] - 2025-05-02
+- improved appearance, readme addition
+
 ## [0.1.9] - 2025-05-02
 - visual tree improvement: ignored in gray, highlighted in bold
 - fix changing column width
