@@ -1,5 +1,9 @@
 # Changelog - не изменять!
 
+## [0.1.8] - 2025-05-02
+- colors of the selected node and connection
+- code syntax highlighting
+
 ## [0.1.7] - 2025-05-02
 - three column design project
 

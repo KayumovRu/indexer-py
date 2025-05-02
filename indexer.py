@@ -7,8 +7,15 @@ https://github.com/KayumovRu/indexer-py
 import os
 import ast
 import fnmatch
+from pathlib import Path
 
-__version__ = "0.1.7"
+__version__ = "0.1.8"
+
+# Graph colors
+NODE_COLOR = "#0074D9"
+NODE_SELECTED_COLOR = "#FF4136"
+EDGE_INCOMING_COLOR = "#2ECC40"
+EDGE_OUTGOING_COLOR = "#FF4136"
 
 # Directory and file constants
 OUTPUT_DIR = "indexer_data"
@@ -415,14 +422,14 @@ def build_call_graph(start_path):
 
 
 def write_graph_html(start_path):
-    """Генерирует HTML-файл с интерактивным графом зависимостей"""
-    # Создаем директорию для вывода, если её нет
+    """Generates an HTML file with an interactive dependency graph"""
+    # Create output directory if it doesn't exist
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     
-    # Получаем узлы и рёбра графа
+    # Get nodes and edges for the graph
     nodes, edges = build_call_graph(start_path)
     
-    # Собираем код для каждого файла
+    # Collect code for each file
     code_repo = {}
     for node in nodes:
         filepath = os.path.join(start_path, node['id'])
@@ -430,23 +437,23 @@ def write_graph_html(start_path):
             with open(filepath, 'r', encoding='utf-8') as f:
                 code_repo[node['id']] = f.read()
         except Exception:
-            code_repo[node['id']] = '# Ошибка при чтении файла'
+            code_repo[node['id']] = '# Error reading file'
     
-    # Получаем статистику
+    # Get statistics
     dirs_count, files_count, lines_count, bytes_count = build_stats(start_path)
     
-    # Получаем дерево файлов
+    # Get file tree
     tree_files_lines = build_tree_files(start_path)
     
-    # Формируем JavaScript для элементов графа
+    # Create JavaScript for graph elements
     elements_js = []
-    # Добавляем узлы
+    # Add nodes
     for node in nodes:
-        node_id = node['id'].replace('\\', '\\\\')  # Экранируем обратные слеши для JavaScript
-        node_label = node['label'].replace('\\', '/')  # Используем прямые слеши для отображения
+        node_id = node['id'].replace('\\', '\\\\')  # Escape backslashes for JavaScript
+        node_label = node['label'].replace('\\', '/')  # Use forward slashes for display
         elements_js.append(f"{{ data: {{ id: '{node_id}', label: '{node_label}' }} }}")
     
-    # Добавляем рёбра
+    # Add edges
     for source, target in edges:
         source_id = source.replace('\\', '\\\\')
         target_id = target.replace('\\', '\\\\')
@@ -454,18 +461,18 @@ def write_graph_html(start_path):
     
     elements_str = ",\n      ".join(elements_js)
     
-    # Формируем JavaScript для кода
+    # Create JavaScript for code repository
     code_js = []
     for path, code in code_repo.items():
-        # Экранируем обратные слеши и кавычки в пути
+        # Escape backslashes and quotes in path
         path_escaped = path.replace('\\', '\\\\').replace("'", "\\'")
-        # Экранируем специальные символы в коде
+        # Escape special characters in code
         code_escaped = code.replace('\\', '\\\\').replace('`', '\\`').replace('${', '\\${')
         code_js.append(f"'{path_escaped}': `{code_escaped}`")
     
     code_str = ",\n      ".join(code_js)
     
-    # Формируем дерево файлов в формате HTML
+    # Format file tree as HTML
     tree_html = "<ul class='file-tree'>\n"
     current_indent = 0
     
@@ -473,17 +480,17 @@ def write_graph_html(start_path):
         line_stripped = line.lstrip()
         indent = len(line) - len(line_stripped)
         
-        # Обрабатываем изменение уровня вложенности
+        # Handle nesting level changes
         if indent > current_indent:
             tree_html += "<ul>\n"
         elif indent < current_indent:
-            # Закрываем нужное количество уровней
+            # Close the required number of levels
             for _ in range((current_indent - indent) // 4):
                 tree_html += "</ul>\n"
         
         current_indent = indent
         
-        # Заменяем символы коннекторов на HTML
+        # Replace connector symbols with HTML
         clean_line = line_stripped
         if clean_line.startswith("├── "):
             clean_line = clean_line[4:]
@@ -492,22 +499,22 @@ def write_graph_html(start_path):
         elif clean_line.startswith("│   "):
             clean_line = clean_line[4:]
         
-        # Проверяем, это директория или файл
+        # Check if this is a directory or a file
         is_dir = clean_line.endswith("/") or " # ignored" in clean_line and clean_line.replace(" # ignored", "").endswith("/")
         
-        # Создаем класс для типа элемента
+        # Create class for item type
         item_class = "dir" if is_dir else "file"
         
-        # Убираем комментарии для отображения
+        # Remove comments for display
         item_name = clean_line.split("  #")[0]
         
         tree_html += f"<li class='{item_class}'>{item_name}</li>\n"
     
-    # Закрываем оставшиеся открытые теги
+    # Close remaining open tags
     for _ in range(current_indent // 4 + 1):
         tree_html += "</ul>\n"
     
-    # Шаблон HTML
+    # HTML Template
     html = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -515,6 +522,9 @@ def write_graph_html(start_path):
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Project Explorer</title>
   <script src="https://unpkg.com/cytoscape/dist/cytoscape.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/default.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/languages/python.min.js"></script>
   <style>
     body {{ 
       margin: 0; 
@@ -537,6 +547,12 @@ def write_graph_html(start_path):
     
     .header h2 {{
       margin: 0;
+    }}
+    
+    .version {{
+      font-size: 0.8em;
+      opacity: 0.8;
+      margin-left: 5px;
     }}
     
     .stats {{
@@ -566,8 +582,8 @@ def write_graph_html(start_path):
       min-width: 150px;
       border-right: 1px solid #ccc;
       overflow: auto;
-      resize: horizontal;
       padding: 10px;
+      position: relative;
     }}
     
     .file-tree {{
@@ -599,15 +615,16 @@ def write_graph_html(start_path):
     
     #cy {{ 
       flex: 1;
+      position: relative;
     }}
     
     .code-panel {{
       width: 35%;
       border-left: 1px solid #ccc;
       overflow: auto;
-      resize: horizontal;
       display: flex;
       flex-direction: column;
+      position: relative;
     }}
     
     .code-header {{
@@ -619,28 +636,51 @@ def write_graph_html(start_path):
     
     .code-content {{
       padding: 10px;
-      font-family: monospace;
-      white-space: pre;
       flex: 1;
       overflow: auto;
     }}
     
-    /* Стили для изменения размера панелей */
-    .gutter {{
-      background-color: #eee;
-      background-repeat: no-repeat;
-      background-position: 50%;
+    pre {{
+      margin: 0;
+      white-space: pre-wrap;
     }}
-
-    .gutter.gutter-horizontal {{
-      cursor: col-resize;
+    
+    code {{
+      font-family: monospace;
+    }}
+    
+    /* Panel resize styles */
+    .gutter {{
       width: 10px;
+      background: #eee;
+      cursor: col-resize;
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      z-index: 10;
+    }}
+    
+    .gutter-right {{
+      right: 0;
+    }}
+    
+    .gutter-left {{
+      left: 0;
+    }}
+    
+    /* Make grab cursor visible when hovering over panel edges */
+    .file-tree-panel:hover .gutter-right {{
+      background-color: #ccc;
+    }}
+    
+    .code-panel:hover .gutter-left {{
+      background-color: #ccc;
     }}
   </style>
 </head>
 <body>
   <div class="header">
-    <h2>Project Explorer</h2>
+    <h2>Project Explorer <span class="version">(v{__version__})</span></h2>
     <div class="stats">
       <div class="stat-item">
         <div class="stat-value">{dirs_count}</div>
@@ -665,18 +705,22 @@ def write_graph_html(start_path):
     <div class="file-tree-panel" id="file-tree-panel">
       <h3>Project Files</h3>
       {tree_html}
+      <div class="gutter gutter-right" id="gutter-tree"></div>
     </div>
     
     <div id="cy"></div>
     
     <div class="code-panel" id="code-panel">
       <div class="code-header" id="code-header">Code View</div>
-      <div class="code-content" id="code-content">Click a node to view its code</div>
+      <div class="code-content" id="code-content">
+        <pre><code class="language-python">Click a node to view its code</code></pre>
+      </div>
+      <div class="gutter gutter-left" id="gutter-code"></div>
     </div>
   </div>
   
   <script>
-    // Инициализация графа
+    // Initialize the graph
     const elements = [
       {elements_str}
     ];
@@ -694,13 +738,21 @@ def write_graph_html(start_path):
           style: {{
             'label': 'data(label)',
             'text-valign': 'center',
-            'background-color': '#0074D9',
+            'background-color': '{NODE_COLOR}',
             'color': '#fff',
             'padding': '10px',
             'text-wrap': 'wrap',
             'width': 'label',
             'height': 'label',
             'text-max-width': '120px'
+          }}
+        }},
+        {{
+          selector: 'node:selected',
+          style: {{
+            'background-color': '{NODE_SELECTED_COLOR}',
+            'border-width': '2px',
+            'border-color': '#000'
           }}
         }},
         {{
@@ -724,92 +776,159 @@ def write_graph_html(start_path):
       }}
     }});
     
-    // Обработчик клика по узлу
+    // Function to highlight incoming/outgoing edges
+    function highlightConnections(nodeId) {{
+      // Reset all edges
+      cy.edges().style({{
+        'line-color': '#ccc',
+        'target-arrow-color': '#ccc'
+      }});
+      
+      // Highlight incoming edges (green)
+      cy.edges().filter(edge => edge.target().id() === nodeId).style({{
+        'line-color': '{EDGE_INCOMING_COLOR}',
+        'target-arrow-color': '{EDGE_INCOMING_COLOR}'
+      }});
+      
+      // Highlight outgoing edges (red)
+      cy.edges().filter(edge => edge.source().id() === nodeId).style({{
+        'line-color': '{EDGE_OUTGOING_COLOR}',
+        'target-arrow-color': '{EDGE_OUTGOING_COLOR}'
+      }});
+    }}
+    
+    // Click handler for nodes
     cy.on('tap', 'node', evt => {{
-      const nodeId = evt.target.id();
-      document.getElementById('code-header').textContent = nodeId.replace(/\\\\/g, '/');
-      document.getElementById('code-content').textContent = codeRepo[nodeId] || 'Code not available';
+      const node = evt.target;
+      const nodeId = node.id();
+      
+      // Update code display
+      const displayPath = nodeId.replace(/\\\\/g, '/');
+      document.getElementById('code-header').textContent = displayPath;
+      
+      const codeContent = codeRepo[nodeId] || 'Code not available';
+      const codePanel = document.getElementById('code-content');
+      
+      // Set code with syntax highlighting
+      codePanel.innerHTML = '<pre><code class="language-python">' + 
+        codeContent.replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;') + 
+        '</code></pre>';
+      
+      // Apply syntax highlighting
+      document.querySelectorAll('pre code').forEach((block) => {{
+        hljs.highlightBlock(block);
+      }});
+      
+      // Highlight connections
+      highlightConnections(nodeId);
     }});
     
-    // Обработчик клика по файлу в дереве
+    // Click handler for files in the tree
     document.querySelectorAll('.file-tree .file').forEach(fileItem => {{
       fileItem.addEventListener('click', () => {{
         const fileName = fileItem.textContent.trim();
         
-        // Ищем соответствующий узел в графе
+        // Find corresponding node in the graph
         cy.nodes().forEach(node => {{
           const nodeLabel = node.data('label');
           if (nodeLabel.endsWith(fileName)) {{
-            // Центрируем и выделяем узел
+            // Center and select the node
             cy.fit(node, 50);
             node.select();
             
-            // Отображаем код
+            // Display code and highlight connections
             const nodeId = node.id();
             document.getElementById('code-header').textContent = nodeId.replace(/\\\\/g, '/');
-            document.getElementById('code-content').textContent = codeRepo[nodeId] || 'Code not available';
+            
+            const codeContent = codeRepo[nodeId] || 'Code not available';
+            const codePanel = document.getElementById('code-content');
+            
+            // Set code with syntax highlighting
+            codePanel.innerHTML = '<pre><code class="language-python">' + 
+              codeContent.replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;') + 
+              '</code></pre>';
+            
+            // Apply syntax highlighting
+            document.querySelectorAll('pre code').forEach((block) => {{
+              hljs.highlightBlock(block);
+            }});
+            
+            // Highlight connections
+            highlightConnections(nodeId);
           }}
         }});
       }});
     }});
     
-    // Изменяемый размер колонок (простая реализация)
+    // Resizable panels implementation
     let isResizing = false;
     let lastX = 0;
+    let currentPanel = null;
     
-    function initResize(e, panel, isLeft) {{
+    // Setup left panel resizing
+    const gutterTree = document.getElementById('gutter-tree');
+    gutterTree.addEventListener('mousedown', function(e) {{
       isResizing = true;
       lastX = e.clientX;
+      currentPanel = document.getElementById('file-tree-panel');
+      document.body.style.cursor = 'col-resize';
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      e.preventDefault();
+    }});
+    
+    // Setup right panel resizing
+    const gutterCode = document.getElementById('gutter-code');
+    gutterCode.addEventListener('mousedown', function(e) {{
+      isResizing = true;
+      lastX = e.clientX;
+      currentPanel = document.getElementById('code-panel');
+      document.body.style.cursor = 'col-resize';
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      e.preventDefault();
+    }});
+    
+    function handleMouseMove(e) {{
+      if (!isResizing) return;
       
-      // Добавляем обработчики
-      document.addEventListener('mousemove', doResize);
-      document.addEventListener('mouseup', stopResize);
+      const deltaX = e.clientX - lastX;
+      lastX = e.clientX;
       
-      // Функция изменения размера
-      function doResize(e) {{
-        if (isResizing) {{
-          const delta = e.clientX - lastX;
-          lastX = e.clientX;
-          
-          const currentWidth = parseInt(window.getComputedStyle(panel).width);
-          const newWidth = isLeft ? currentWidth + delta : currentWidth - delta;
-          
-          if (newWidth > 100 && newWidth < window.innerWidth / 2) {{
-            panel.style.width = `${{newWidth}}px`;
-          }}
+      const isLeftPanel = currentPanel.id === 'file-tree-panel';
+      const width = parseInt(getComputedStyle(currentPanel).width);
+      
+      if (isLeftPanel) {{
+        // Resizing left panel (tree)
+        const newWidth = width + deltaX;
+        if (newWidth > 100 && newWidth < window.innerWidth / 2) {{
+          currentPanel.style.width = newWidth + 'px';
         }}
-      }}
-      
-      // Остановка изменения размера
-      function stopResize() {{
-        isResizing = false;
-        document.removeEventListener('mousemove', doResize);
-        document.removeEventListener('mouseup', stopResize);
+      }} else {{
+        // Resizing right panel (code)
+        const newWidth = width - deltaX;
+        if (newWidth > 100 && newWidth < window.innerWidth / 2) {{
+          currentPanel.style.width = newWidth + 'px';
+        }}
       }}
     }}
     
-    // Добавляем обработчики для левой панели
-    document.getElementById('file-tree-panel').addEventListener('mousedown', function(e) {{
-      // Проверяем, что клик был рядом с правым краем
-      const rect = this.getBoundingClientRect();
-      if (e.clientX > rect.right - 10 && e.clientX < rect.right) {{
-        initResize(e, this, true);
-      }}
-    }});
-    
-    // Добавляем обработчики для правой панели
-    document.getElementById('code-panel').addEventListener('mousedown', function(e) {{
-      // Проверяем, что клик был рядом с левым краем
-      const rect = this.getBoundingClientRect();
-      if (e.clientX < rect.left + 10 && e.clientX > rect.left) {{
-        initResize(e, this, false);
-      }}
-    }});
+    function handleMouseUp() {{
+      isResizing = false;
+      currentPanel = null;
+      document.body.style.cursor = '';
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    }}
   </script>
 </body>
 </html>"""
     
-    # Записываем HTML в файл
+    # Write HTML to file
     graph_path = os.path.join(start_path, OUTPUT_DIR, 'project.html')
     with open(graph_path, 'w', encoding='utf-8') as f:
         f.write(html)
