@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Project Dependency Graph</title>
+  <script src="https://unpkg.com/cytoscape/dist/cytoscape.min.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; padding: 0; }
+    #cy { width: 100vw; height: 90vh; display: block; }
+    #code-panel { height: 10vh; overflow: auto; padding: 10px; background: #f5f5f5; border-top: 1px solid #ccc; font-family: monospace; white-space: pre; }
+  </style>
+</head>
+<body>
+  <div id="cy"></div>
+  <div id="code-panel">Click a node to view code here</div>
+
+  <script>
+    // Example data: replace with generated dependencies
+    const elements = [
+      { data: { id: 'main.py', label: 'main.py' } },
+      { data: { id: 'config.py', label: 'config.py' } },
+      { data: { id: 'utils.file_manager', label: 'utils.file_manager' } },
+      { data: { id: 'models.user', label: 'models.user' } },
+      // edges
+      { data: { source: 'main.py', target: 'config.py' } },
+      { data: { source: 'main.py', target: 'utils.file_manager' } },
+      { data: { source: 'main.py', target: 'models.user' } },
+      { data: { source: 'utils.file_manager', target: 'models.user' } }
+    ];
+
+    // Placeholder code repository: replace with actual code mapping
+    const codeRepo = {
+      'main.py': `# main.py example code\ndef start_app(config):\n    print('Starting')`,
+      'config.py': `# config.py example code\nAPI_URL = 'https://api.example.com'`,
+      'utils.file_manager': `# utils/file_manager.py example code\ndef save_file(path, data):\n    with open(path, 'w') as f:\n        f.write(data)`,
+      'models.user': `# models/user.py example code\nclass User:\n    def __init__(self, name):\n        self.name = name`
+    };
+
+    const cy = cytoscape({
+      container: document.getElementById('cy'),
+      elements,
+      style: [
+        { selector: 'node', style: { 'label': 'data(label)', 'text-valign': 'center', 'color': '#fff', 'background-color': '#0074D9', 'width': 'label', 'height': 'label', 'padding': '10px' } },
+        { selector: 'edge', style: { 'curve-style': 'bezier', 'target-arrow-shape': 'triangle', 'width': 2, 'line-color': '#ccc', 'target-arrow-color': '#ccc' } }
+      ],
+      layout: { name: 'breadthfirst', directed: true, padding: 10 }
+    });
+
+    cy.on('tap', 'node', evt => {
+      const nodeId = evt.target.id();
+      document.getElementById('code-panel').textContent = codeRepo[nodeId] || 'Code not available';
+    });
+  </script>
+</body>
+</html>

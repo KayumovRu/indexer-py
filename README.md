@@ -1,6 +1,6 @@
 # Indexer-Py
 
-Indexer-Py is a minimalistic Python project indexing tool built entirely with Python's standard libraries. It is designed to help you quickly restore context for your project by generating several output files that describe the project’s structure, detailed definitions, and dependencies. This tool is especially useful when used in conjunction with AI agents (e.g., Cursor AI) to provide rapid context recovery from your project's source code.
+Indexer-Py is a minimalistic Python project indexing tool built entirely with Python's standard libraries. It is designed to help you quickly restore context for your project by generating several output files that describe the project's structure, detailed definitions, and dependencies. This tool is especially useful when used in conjunction with AI agents (e.g., Cursor AI) to provide rapid context recovery from your project's source code.
 
 ## Features
 
@@ -15,6 +15,9 @@ Indexer-Py is a minimalistic Python project indexing tool built entirely with Py
 
 - **Project Statistics (`stat.txt`):**  
   Summarizes the project by counting directories, files (excluding ignored items), total lines, and total bytes.
+
+- **Interactive Dependency Graph (`graph.html`):**  
+  Generates an interactive visualization of module dependencies in your project. You can click on nodes to view the source code of the respective files and drag nodes to rearrange the graph layout.
 
 ## Usage
 
@@ -49,6 +52,7 @@ Indexer-Py is a minimalistic Python project indexing tool built entirely with Py
    - `tree_files.txt`
    - `map_definitions.txt`
    - `stat.txt`
+   - `graph.html`
 
 4. **Terminal Output:**  
    After execution, the script will print a completion message with statistics about the project (number of directories, files, and total lines).
@@ -131,7 +135,7 @@ Total number of bytes: 120000
 
 ## Minimalistic and Standard Library Only
 
-Indexer-Py is built entirely on Python’s standard libraries. There is no need to install any external dependencies, making it highly portable and easy to integrate into any Python project.
+Indexer-Py is built entirely on Python's standard libraries. There is no need to install any external dependencies, making it highly portable and easy to integrate into any Python project.
 
 ---
 

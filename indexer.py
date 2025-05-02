@@ -384,6 +384,163 @@ def build_stats(start_path):
                 pass
     return dirs_count, files_count, lines_count, bytes_count
 
+# ---------------------- Graph HTML Generation ---------------------- #
+def build_call_graph(start_path):
+    """Returns list of nodes and edges for graph"""
+    local_modules = build_local_modules(start_path)
+    nodes = []
+    edges = set()  # используем множество для исключения дублирующихся рёбер
+    
+    # Добавляем узлы для каждого Python-файла в проекте
+    for module, rel_path in local_modules.items():
+        nodes.append({'id': rel_path, 'label': rel_path})
+    
+    # Создаем ребра на основе импортов
+    for module, rel_path in local_modules.items():
+        full_path = os.path.join(start_path, rel_path)
+        imports, _ = get_used_entities(full_path)
+        
+        for imported in imports:
+            # Ищем импортированный модуль среди локальных модулей
+            imported_prefix = imported.split('.')[0]
+            for local_mod, local_path in local_modules.items():
+                if local_mod == imported or local_mod.startswith(imported + '.') or imported.startswith(local_mod + '.'):
+                    # Если нашли соответствие, добавляем ребро
+                    if rel_path != local_path:  # Исключаем самоссылки
+                        edges.add((rel_path, local_path))
+                    break
+    
+    return nodes, list(edges)
+
+
+def write_graph_html(start_path):
+    """Генерирует HTML-файл с интерактивным графом зависимостей"""
+    # Создаем директорию для вывода, если её нет
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    
+    # Получаем узлы и рёбра графа
+    nodes, edges = build_call_graph(start_path)
+    
+    # Собираем код для каждого файла
+    code_repo = {}
+    for node in nodes:
+        filepath = os.path.join(start_path, node['id'])
+        try:
+            with open(filepath, 'r', encoding='utf-8') as f:
+                code_repo[node['id']] = f.read()
+        except Exception:
+            code_repo[node['id']] = '# Ошибка при чтении файла'
+    
+    # Формируем JavaScript для элементов графа
+    elements_js = []
+    # Добавляем узлы
+    for node in nodes:
+        node_id = node['id'].replace('\\', '\\\\')  # Экранируем обратные слеши для JavaScript
+        node_label = node['label'].replace('\\', '/')  # Используем прямые слеши для отображения
+        elements_js.append(f"{{ data: {{ id: '{node_id}', label: '{node_label}' }} }}")
+    
+    # Добавляем рёбра
+    for source, target in edges:
+        source_id = source.replace('\\', '\\\\')
+        target_id = target.replace('\\', '\\\\')
+        elements_js.append(f"{{ data: {{ source: '{source_id}', target: '{target_id}' }} }}")
+    
+    elements_str = ",\n      ".join(elements_js)
+    
+    # Формируем JavaScript для кода
+    code_js = []
+    for path, code in code_repo.items():
+        # Экранируем обратные слеши и кавычки в пути
+        path_escaped = path.replace('\\', '\\\\').replace("'", "\\'")
+        # Экранируем специальные символы в коде
+        code_escaped = code.replace('\\', '\\\\').replace('`', '\\`').replace('${', '\\${')
+        code_js.append(f"'{path_escaped}': `{code_escaped}`")
+    
+    code_str = ",\n      ".join(code_js)
+    
+    # Шаблон HTML
+    html = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Project Dependency Graph</title>
+  <script src="https://unpkg.com/cytoscape/dist/cytoscape.min.js"></script>
+  <style>
+    body {{ margin:0; padding:0; font-family:Arial,sans-serif; }}
+    #cy {{ width:100%; height:80vh; }}
+    #code-panel {{ height:20vh; padding:10px; background:#f5f5f5; overflow:auto; white-space:pre; font-family:monospace; border-top:1px solid #ccc; }}
+    .header {{ padding:10px; background:#333; color:white; }}
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h2>Project Dependency Graph</h2>
+    <p>Click on a node to view its code. Drag nodes to rearrange the graph.</p>
+  </div>
+  <div id="cy"></div>
+  <div id="code-panel">Click a node to view its code</div>
+  <script>
+    const elements = [
+      {elements_str}
+    ];
+    
+    const codeRepo = {{
+      {code_str}
+    }};
+    
+    const cy = cytoscape({{
+      container: document.getElementById('cy'),
+      elements,
+      style: [
+        {{
+          selector: 'node',
+          style: {{
+            'label': 'data(label)',
+            'text-valign': 'center',
+            'background-color': '#0074D9',
+            'color': '#fff',
+            'padding': '10px',
+            'text-wrap': 'wrap',
+            'width': 'label',
+            'height': 'label',
+            'text-max-width': '120px'
+          }}
+        }},
+        {{
+          selector: 'edge',
+          style: {{
+            'curve-style': 'bezier',
+            'target-arrow-shape': 'triangle',
+            'line-color': '#ccc',
+            'target-arrow-color': '#ccc',
+            'width': 2
+          }}
+        }}
+      ],
+      layout: {{
+        name: 'cose',
+        directed: true,
+        padding: 30,
+        componentSpacing: 40,
+        nodeOverlap: 20,
+        animate: false
+      }}
+    }});
+    
+    cy.on('tap', 'node', evt => {{
+      const nodeId = evt.target.id();
+      document.getElementById('code-panel').textContent = codeRepo[nodeId] || 'Code not available';
+    }});
+  </script>
+</body>
+</html>"""
+    
+    # Записываем HTML в файл
+    graph_path = os.path.join(start_path, OUTPUT_DIR, 'graph.html')
+    with open(graph_path, 'w', encoding='utf-8') as f:
+        f.write(html)
+
 # ---------------------- File Writing ---------------------- #
 def write_file(filepath, header, lines):
     """
@@ -450,3 +607,6 @@ if __name__ == "__main__":
     print(f"Number of directories: {dirs_count}")
     print(f"Number of files: {files_count}")
     print(f"Total number of lines: {lines_count}")
+
+    write_graph_html(start_dir)
+    print(f"Generated dependency graph: {os.path.join(OUTPUT_DIR, 'graph.html')}")
