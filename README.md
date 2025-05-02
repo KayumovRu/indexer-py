@@ -19,6 +19,13 @@ Indexer-Py is a minimalistic Python project indexing tool built entirely with Py
 - **Interactive Dependency Graph (`graph.html`):**  
   Generates an interactive visualization of module dependencies in your project. You can click on nodes to view the source code of the respective files and drag nodes to rearrange the graph layout.
 
+- **Interactive Project Explorer (`project.html`):**  
+  Generates an interactive visualization of your project with three panels:
+  - Left panel: Tree structure of your project files
+  - Center panel: Interactive dependency graph with draggable nodes
+  - Right panel: Source code viewer
+  The interface includes project statistics and allows resizing panels by dragging their borders.
+
 ## Usage
 
 1. **Prepare your project:**  
@@ -52,7 +59,7 @@ Indexer-Py is a minimalistic Python project indexing tool built entirely with Py
    - `tree_files.txt`
    - `map_definitions.txt`
    - `stat.txt`
-   - `graph.html`
+   - `project.html`
 
 4. **Terminal Output:**  
    After execution, the script will print a completion message with statistics about the project (number of directories, files, and total lines).

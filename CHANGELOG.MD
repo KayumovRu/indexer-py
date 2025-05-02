@@ -1,5 +1,8 @@
 # Changelog - не изменять!
 
+## [0.1.7] - 2025-05-02
+- three column design project
+
 ## [0.1.5] - 2025-05-02
 - visual project graph
 

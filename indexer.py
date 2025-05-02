@@ -8,7 +8,7 @@ import os
 import ast
 import fnmatch
 
-__version__ = "0.1.3"
+__version__ = "0.1.7"
 
 # Directory and file constants
 OUTPUT_DIR = "indexer_data"
@@ -34,7 +34,8 @@ IGNORE = {
     "Dockerfile",
     ".yaml",
     ".json",
-    "LICENSE"
+    "LICENSE",
+    "__init__.py"
 }
 
 # ---------------------- Utility Functions ---------------------- #
@@ -431,6 +432,12 @@ def write_graph_html(start_path):
         except Exception:
             code_repo[node['id']] = '# Ошибка при чтении файла'
     
+    # Получаем статистику
+    dirs_count, files_count, lines_count, bytes_count = build_stats(start_path)
+    
+    # Получаем дерево файлов
+    tree_files_lines = build_tree_files(start_path)
+    
     # Формируем JavaScript для элементов графа
     elements_js = []
     # Добавляем узлы
@@ -458,29 +465,218 @@ def write_graph_html(start_path):
     
     code_str = ",\n      ".join(code_js)
     
+    # Формируем дерево файлов в формате HTML
+    tree_html = "<ul class='file-tree'>\n"
+    current_indent = 0
+    
+    for line in tree_files_lines:
+        line_stripped = line.lstrip()
+        indent = len(line) - len(line_stripped)
+        
+        # Обрабатываем изменение уровня вложенности
+        if indent > current_indent:
+            tree_html += "<ul>\n"
+        elif indent < current_indent:
+            # Закрываем нужное количество уровней
+            for _ in range((current_indent - indent) // 4):
+                tree_html += "</ul>\n"
+        
+        current_indent = indent
+        
+        # Заменяем символы коннекторов на HTML
+        clean_line = line_stripped
+        if clean_line.startswith("├── "):
+            clean_line = clean_line[4:]
+        elif clean_line.startswith("└── "):
+            clean_line = clean_line[4:]
+        elif clean_line.startswith("│   "):
+            clean_line = clean_line[4:]
+        
+        # Проверяем, это директория или файл
+        is_dir = clean_line.endswith("/") or " # ignored" in clean_line and clean_line.replace(" # ignored", "").endswith("/")
+        
+        # Создаем класс для типа элемента
+        item_class = "dir" if is_dir else "file"
+        
+        # Убираем комментарии для отображения
+        item_name = clean_line.split("  #")[0]
+        
+        tree_html += f"<li class='{item_class}'>{item_name}</li>\n"
+    
+    # Закрываем оставшиеся открытые теги
+    for _ in range(current_indent // 4 + 1):
+        tree_html += "</ul>\n"
+    
     # Шаблон HTML
     html = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Project Dependency Graph</title>
+  <title>Project Explorer</title>
   <script src="https://unpkg.com/cytoscape/dist/cytoscape.min.js"></script>
   <style>
-    body {{ margin:0; padding:0; font-family:Arial,sans-serif; }}
-    #cy {{ width:100%; height:80vh; }}
-    #code-panel {{ height:20vh; padding:10px; background:#f5f5f5; overflow:auto; white-space:pre; font-family:monospace; border-top:1px solid #ccc; }}
-    .header {{ padding:10px; background:#333; color:white; }}
+    body {{ 
+      margin: 0; 
+      padding: 0; 
+      font-family: Arial, sans-serif; 
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }}
+    
+    .header {{ 
+      padding: 10px; 
+      background: #333; 
+      color: white; 
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }}
+    
+    .header h2 {{
+      margin: 0;
+    }}
+    
+    .stats {{
+      display: flex;
+      gap: 20px;
+    }}
+    
+    .stat-item {{
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }}
+    
+    .stat-value {{
+      font-size: 1.2em;
+      font-weight: bold;
+    }}
+    
+    .main-container {{
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }}
+    
+    .file-tree-panel {{
+      width: 25%;
+      min-width: 150px;
+      border-right: 1px solid #ccc;
+      overflow: auto;
+      resize: horizontal;
+      padding: 10px;
+    }}
+    
+    .file-tree {{
+      list-style-type: none;
+      padding-left: 0;
+    }}
+    
+    .file-tree ul {{
+      list-style-type: none;
+      padding-left: 20px;
+    }}
+    
+    .file-tree li {{
+      padding: 3px 0;
+      cursor: pointer;
+    }}
+    
+    .file-tree li:hover {{
+      background-color: #f0f0f0;
+    }}
+    
+    .file-tree .dir::before {{
+      content: "📁 ";
+    }}
+    
+    .file-tree .file::before {{
+      content: "📄 ";
+    }}
+    
+    #cy {{ 
+      flex: 1;
+    }}
+    
+    .code-panel {{
+      width: 35%;
+      border-left: 1px solid #ccc;
+      overflow: auto;
+      resize: horizontal;
+      display: flex;
+      flex-direction: column;
+    }}
+    
+    .code-header {{
+      padding: 5px 10px;
+      background: #f0f0f0;
+      border-bottom: 1px solid #ccc;
+      font-weight: bold;
+    }}
+    
+    .code-content {{
+      padding: 10px;
+      font-family: monospace;
+      white-space: pre;
+      flex: 1;
+      overflow: auto;
+    }}
+    
+    /* Стили для изменения размера панелей */
+    .gutter {{
+      background-color: #eee;
+      background-repeat: no-repeat;
+      background-position: 50%;
+    }}
+
+    .gutter.gutter-horizontal {{
+      cursor: col-resize;
+      width: 10px;
+    }}
   </style>
 </head>
 <body>
   <div class="header">
-    <h2>Project Dependency Graph</h2>
-    <p>Click on a node to view its code. Drag nodes to rearrange the graph.</p>
+    <h2>Project Explorer</h2>
+    <div class="stats">
+      <div class="stat-item">
+        <div class="stat-value">{dirs_count}</div>
+        <div class="stat-label">Directories</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-value">{files_count}</div>
+        <div class="stat-label">Files</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-value">{lines_count}</div>
+        <div class="stat-label">Lines</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-value">{bytes_count // 1024} KB</div>
+        <div class="stat-label">Size</div>
+      </div>
+    </div>
   </div>
-  <div id="cy"></div>
-  <div id="code-panel">Click a node to view its code</div>
+  
+  <div class="main-container">
+    <div class="file-tree-panel" id="file-tree-panel">
+      <h3>Project Files</h3>
+      {tree_html}
+    </div>
+    
+    <div id="cy"></div>
+    
+    <div class="code-panel" id="code-panel">
+      <div class="code-header" id="code-header">Code View</div>
+      <div class="code-content" id="code-content">Click a node to view its code</div>
+    </div>
+  </div>
+  
   <script>
+    // Инициализация графа
     const elements = [
       {elements_str}
     ];
@@ -528,16 +724,93 @@ def write_graph_html(start_path):
       }}
     }});
     
+    // Обработчик клика по узлу
     cy.on('tap', 'node', evt => {{
       const nodeId = evt.target.id();
-      document.getElementById('code-panel').textContent = codeRepo[nodeId] || 'Code not available';
+      document.getElementById('code-header').textContent = nodeId.replace(/\\\\/g, '/');
+      document.getElementById('code-content').textContent = codeRepo[nodeId] || 'Code not available';
+    }});
+    
+    // Обработчик клика по файлу в дереве
+    document.querySelectorAll('.file-tree .file').forEach(fileItem => {{
+      fileItem.addEventListener('click', () => {{
+        const fileName = fileItem.textContent.trim();
+        
+        // Ищем соответствующий узел в графе
+        cy.nodes().forEach(node => {{
+          const nodeLabel = node.data('label');
+          if (nodeLabel.endsWith(fileName)) {{
+            // Центрируем и выделяем узел
+            cy.fit(node, 50);
+            node.select();
+            
+            // Отображаем код
+            const nodeId = node.id();
+            document.getElementById('code-header').textContent = nodeId.replace(/\\\\/g, '/');
+            document.getElementById('code-content').textContent = codeRepo[nodeId] || 'Code not available';
+          }}
+        }});
+      }});
+    }});
+    
+    // Изменяемый размер колонок (простая реализация)
+    let isResizing = false;
+    let lastX = 0;
+    
+    function initResize(e, panel, isLeft) {{
+      isResizing = true;
+      lastX = e.clientX;
+      
+      // Добавляем обработчики
+      document.addEventListener('mousemove', doResize);
+      document.addEventListener('mouseup', stopResize);
+      
+      // Функция изменения размера
+      function doResize(e) {{
+        if (isResizing) {{
+          const delta = e.clientX - lastX;
+          lastX = e.clientX;
+          
+          const currentWidth = parseInt(window.getComputedStyle(panel).width);
+          const newWidth = isLeft ? currentWidth + delta : currentWidth - delta;
+          
+          if (newWidth > 100 && newWidth < window.innerWidth / 2) {{
+            panel.style.width = `${{newWidth}}px`;
+          }}
+        }}
+      }}
+      
+      // Остановка изменения размера
+      function stopResize() {{
+        isResizing = false;
+        document.removeEventListener('mousemove', doResize);
+        document.removeEventListener('mouseup', stopResize);
+      }}
+    }}
+    
+    // Добавляем обработчики для левой панели
+    document.getElementById('file-tree-panel').addEventListener('mousedown', function(e) {{
+      // Проверяем, что клик был рядом с правым краем
+      const rect = this.getBoundingClientRect();
+      if (e.clientX > rect.right - 10 && e.clientX < rect.right) {{
+        initResize(e, this, true);
+      }}
+    }});
+    
+    // Добавляем обработчики для правой панели
+    document.getElementById('code-panel').addEventListener('mousedown', function(e) {{
+      // Проверяем, что клик был рядом с левым краем
+      const rect = this.getBoundingClientRect();
+      if (e.clientX < rect.left + 10 && e.clientX > rect.left) {{
+        initResize(e, this, false);
+      }}
     }});
   </script>
 </body>
 </html>"""
     
     # Записываем HTML в файл
-    graph_path = os.path.join(start_path, OUTPUT_DIR, 'graph.html')
+    graph_path = os.path.join(start_path, OUTPUT_DIR, 'project.html')
     with open(graph_path, 'w', encoding='utf-8') as f:
         f.write(html)
 
@@ -609,4 +882,4 @@ if __name__ == "__main__":
     print(f"Total number of lines: {lines_count}")
 
     write_graph_html(start_dir)
-    print(f"Generated dependency graph: {os.path.join(OUTPUT_DIR, 'graph.html')}")
+    print(f"Generated dependency graph: {os.path.join(OUTPUT_DIR, 'project.html')}")
